@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 # import local package
 import config
 
-gmaps = googlemaps.Client(config.key) #use your google api key here
+gmaps = googlemaps.Client(key=config.key) #use your google api key here
 
 # Set up argument parsing
 parser = argparse.ArgumentParser(description='Trip profiling tool.')
@@ -31,12 +31,10 @@ args = parser.parse_args()
 file_name = args.route_file
 hours = args.hours
 
-# Read YAML file
-with open(file_name, 'r') as stream:
-    try:
-        data = yaml.load(stream)
-    except yaml.YAMLError as exc:
-        print(exc)
+# Load data from YAML file
+with open(file_name, 'r') as f:
+    data = yaml.safe_load(f)
+
 
 origin = data["origin"]
 destination = data["destination"]
