@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 
 # import local package
 import config
+from datetime import datetime
 
 gmaps = googlemaps.Client(key=config.key) #use your google api key here
 
@@ -23,75 +24,96 @@ gmaps = googlemaps.Client(key=config.key) #use your google api key here
 parser = argparse.ArgumentParser(description='Trip profiling tool.')
 parser.add_argument('route_file', type=str,
                     help='str: file name for a yaml with origin and destination specified')
-parser.add_argument('--hours', default='3', type=int,
+parser.add_argument('--hours', type=int,
                     help='int: number of hours to run for')
+parser.add_argument('--minutes', type=int,
+                    help='int: number of minutes to run for')
+parser.add_argument('--interval', default=2, type=int,
+                    help='int: how often to poll traffic data')
 args = parser.parse_args()
 
 # Assign arguments to variables
 file_name = args.route_file
-hours = args.hours
+intervalMinutes = args.interval
+# If both args.minutes and hours are defined, return an error
+if args.minutes is not None and args.hours is not None:
+    raise ValueError("Please only use either --hours or --minutes, not both.")
+
+# If they used args.minutes assign it to minutes
+if args.minutes is not None:
+    minutes = args.minutes
+    
+if args.hours is not None:
+    minutes = args.hours * 60
 
 # Load data from YAML file
 with open(file_name, 'r') as f:
     data = yaml.safe_load(f)
 
-
 origin = data["origin"]
-destination = data["destination"]
-    
+destination = data["destination"]   
+
 
 def get_duration():
 
     now = datetime.now()
     directions = gmaps.directions(origin, destination, traffic_model="best_guess", mode="driving", departure_time=now)
 
-    traffic_secs = directions[0]['legs'][0]['duration_in_traffic']['value']
+    traffic_secs = directions[0]['legs'][0]['duration_in_traffic']['value'] / 60
 
     return now, traffic_secs
+
 
 def plot_todays_traffic(data):
 
     times_list = data['datetime']
     durations_list = data['duration']
-    durations_list /= 60
+
+    print (data['datetime'].iloc[0])
+    start_date = datetime.strptime(str(data['datetime'].iloc[0]), '%Y-%m-%d %H:%M:%S.%f')
+    pretty_date = start_date.strftime(f"%Y-%m-%d-%H%M")
 
     fig, ax = plt.subplots()
     ax.plot_date(times_list, durations_list, linestyle='-', linewidth=3, marker=" ")
 
     ax.set_ylabel('Trip Duration (min)')
     ax.set_xlabel('Departure Time')
-    ax.set_title('Traffic Profile Starting at %s' % data['datetime'].iloc[0].strftime("%Y-%m-%d %H:%M"))
+    ax.set_title(f"Traffic Profile Starting at {pretty_date}")
+
 
     fig.autofmt_xdate()
 
     with plt.style.context('ggplot'):
-        plt.savefig('/tmp/%s.png' % data['datetime'].iloc[0].strftime("%Y-%m-%d-%H-%M"))
+        plt.savefig(f'./traffic_profile_{pretty_date}.png')
 
     return
 
+
 def main():
-
-    # data stored is csv of day of the week, date time of instance, and duration of trip
-    df = pd.DataFrame(columns=('day_of_week','datetime','duration'))
-
-    print("Calculating trip duration over the next %s hours at 1 minute intervals." % hours)
-    for i in tqdm(range(hours*60)):
-        now, duration = get_duration()
-        dow = datetime.today().weekday()
-        df.loc[i] = [dow, now, duration]
-        time.sleep(60)
-
+    
     p, f = os.path.split(file_name)
     route = f.replace(".yaml", "")
 
-    if not os.path.isfile('/tmp/traffic_%s.csv' % route):
-        with open('/tmp/traffic_%s.csv' % route, 'w') as f:
+    # data stored is csv of day of the week, date time of instance, and duration of trip
+    df = pd.DataFrame(columns=('day_of_week','datetime','duration'))
+    
+    
+    print(f"Calculating trip duration over the next {minutes} minutes at {intervalMinutes} minute intervals.")
+    for i in tqdm(range((int)(minutes / intervalMinutes))):
+        now, duration = get_duration()
+        dow = datetime.today().weekday()
+        df.loc[i] = [dow, now, duration]
+        time.sleep(60 * intervalMinutes)
+
+
+    if not os.path.isfile('./traffic_%s.csv' % route):
+        with open('./traffic_%s.csv' % route, 'w') as f:
             df.to_csv(f, header=True, index=False)
 
     else:
-        with open('/tmp/traffic_%s.csv' % route, "a") as f:
+        with open('./traffic_%s.csv' % route, "a") as f:
             df.to_csv(f, header=False, index=False)
-
+    
     plot_todays_traffic(df)
 
     return
