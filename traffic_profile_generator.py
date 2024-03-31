@@ -64,7 +64,7 @@ def get_duration():
     return now, traffic_secs
 
 
-def plot_todays_traffic(data):
+def plot_todays_traffic(data, route_name):
 
     times_list = data['datetime']
     durations_list = data['duration']
@@ -78,13 +78,13 @@ def plot_todays_traffic(data):
 
     ax.set_ylabel('Trip Duration (min)')
     ax.set_xlabel('Departure Time')
-    ax.set_title(f"Traffic Profile Starting at {pretty_date}")
+    ax.set_title(f"Traffic Profile for {route_name} Starting at {pretty_date}")
 
 
     fig.autofmt_xdate()
 
     with plt.style.context('ggplot'):
-        plt.savefig(f'./traffic_profile_{pretty_date}.png')
+        plt.savefig(f'./traffic_profile_{route_name}_{pretty_date}.png')
 
     return
 
@@ -92,8 +92,8 @@ def plot_todays_traffic(data):
 def main():
     
     p, f = os.path.split(file_name)
+    
     route = f.replace(".yaml", "")
-
     # data stored is csv of day of the week, date time of instance, and duration of trip
     df = pd.DataFrame(columns=('day_of_week','datetime','duration'))
     
@@ -114,7 +114,7 @@ def main():
         with open('./traffic_%s.csv' % route, "a") as f:
             df.to_csv(f, header=False, index=False)
     
-    plot_todays_traffic(df)
+    plot_todays_traffic(df, route)
 
     return
 
