@@ -1,3 +1,5 @@
 config.py
 *.pyc
 *.yaml
+traffic_*.csv
+traffic_*.png
